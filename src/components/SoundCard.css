@@ -1,0 +1,65 @@
+.sound-card {
+    background: var(--surface-color);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: relative;
+    overflow: hidden;
+    height: 120px;
+    width: 100%;
+    user-select: none;
+    touch-action: manipulation;
+}
+
+.sound-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 0;
+}
+
+.sound-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), 0 0 15px rgba(131, 56, 236, 0.3);
+    border-color: var(--secondary-color);
+}
+
+.sound-card:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.sound-card:active::before {
+    opacity: 0.1;
+}
+
+.sound-label {
+    position: relative;
+    z-index: 1;
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text-color);
+    pointer-events: none;
+}
+
+.sound-icon {
+    margin-bottom: 0.5rem;
+    color: var(--secondary-color);
+    transition: color 0.2s;
+}
+
+.sound-card:hover .sound-icon {
+    color: var(--primary-color);
+}
