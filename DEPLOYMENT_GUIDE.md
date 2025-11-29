@@ -30,6 +30,11 @@ Follow this step-by-step guide to host your application on Vercel and set up the
         on clips for select
         to anon
         using (true);
+
+        create policy "Enable insert access for all users"
+        on clips for insert
+        to anon
+        with check (true);
         ```
     *   Click **Run**.
 
@@ -39,7 +44,10 @@ Follow this step-by-step guide to host your application on Vercel and set up the
     *   Name it `audio-clips`.
     *   **IMPORTANT**: Toggle "Public bucket" to **ON**.
     *   Click "Save".
-    *   Upload your audio files (mp3, wav) into this bucket.
+    *   **Policies**: In the Storage dashboard, click "Policies" next to your bucket.
+        *   Add a policy for **SELECT** (Read) for `anon` users.
+        *   Add a policy for **INSERT** (Upload) for `anon` users.
+    *   Upload your audio files (mp3, wav) into this bucket (or use the app's upload button).
 
 4.  **Get Credentials**:
     *   Go to **Project Settings** (gear icon) -> **API**.

@@ -4,6 +4,37 @@
     padding: 0 1rem 4rem 1rem;
 }
 
+.controls-bar {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.upload-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    transition: all 0.2s;
+    box-shadow: 0 4px 15px rgba(255, 0, 110, 0.3);
+}
+
+.upload-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 0, 110, 0.5);
+    filter: brightness(1.1);
+}
+
+.upload-btn:active {
+    transform: translateY(0);
+}
+
 .sound-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));

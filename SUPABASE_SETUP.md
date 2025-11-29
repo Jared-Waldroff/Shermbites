@@ -23,6 +23,12 @@ create policy "Enable read access for all users"
 on clips for select
 to anon
 using (true);
+
+-- Create a policy to allow public insert access (for uploads)
+create policy "Enable insert access for all users"
+on clips for insert
+to anon
+with check (true);
 ```
 
 ## 2. Storage Bucket
@@ -30,8 +36,12 @@ using (true);
 1. Go to **Storage** in your Supabase dashboard.
 2. Create a new bucket named `audio-clips`.
 3. Make sure the bucket is **Public**.
-4. Upload your audio files (mp3, wav, etc.) to this bucket.
-5. Add entries to the `clips` table where `filename` matches the name of the file in the bucket (e.g., `wow.mp3`).
+4. **Policies**: You need to add policies to allow uploads.
+   - Go to the **Configuration** tab of your bucket (or Policies).
+   - Add a policy for **SELECT** (Read): `Give users access to all files` -> Select "SELECT".
+   - Add a policy for **INSERT** (Upload): `Give users access to upload files` -> Select "INSERT".
+   - For simplicity in this demo, you can allow these for `anon` role.
+5. Upload your audio files (mp3, wav, etc.) to this bucket manually OR use the new Upload button in the app.
 
 ## 3. Environment Variables
 

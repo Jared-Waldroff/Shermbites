@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import SoundCard from './SoundCard'
+import UploadModal from './UploadModal'
+import RandomButton from './RandomButton'
+import { Plus } from 'lucide-react'
 import './SoundBoard.css'
 
 export default function SoundBoard() {
@@ -8,6 +11,7 @@ export default function SoundBoard() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [playingId, setPlayingId] = useState(null)
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
     useEffect(() => {
         fetchClips()
@@ -26,10 +30,6 @@ export default function SoundBoard() {
         } catch (err) {
             console.error('Error fetching clips:', err)
             setError(err.message)
-            // Fallback for demo if no DB connection yet
-            if (err.message.includes('env') || err.message.includes('fetch')) {
-                // Optional: Load mock data here if desired, but for now just show error
-            }
         } finally {
             setLoading(false)
         }
@@ -38,8 +38,6 @@ export default function SoundBoard() {
     const playSound = (clip) => {
         if (!clip.filename) return
 
-        // Construct public URL for the audio file
-        // Assuming bucket is 'audio-clips'
         const { data } = supabase.storage.from('audio-clips').getPublicUrl(clip.filename)
 
         if (data?.publicUrl) {
@@ -50,22 +48,45 @@ export default function SoundBoard() {
         }
     }
 
+    const playRandom = () => {
+        if (clips.length === 0) return
+        const randomClip = clips[Math.floor(Math.random() * clips.length)]
+        playSound(randomClip)
+    }
+
     if (loading) return <div className="loading-state">Loading Sherm bites...</div>
     if (error) return <div className="error-state">Error: {error}. Make sure you've set up Supabase!</div>
-    if (clips.length === 0) return <div className="empty-state">No clips found. Add some to the database!</div>
 
     return (
         <div className="sound-board-container">
-            <div className="sound-grid">
-                {clips.map(clip => (
-                    <SoundCard
-                        key={clip.id}
-                        label={clip.label}
-                        onClick={() => playSound(clip)}
-                        isPlaying={playingId === clip.id}
-                    />
-                ))}
+            <div className="controls-bar">
+                <RandomButton onPlayRandom={playRandom} disabled={clips.length === 0} />
+                <button className="upload-btn" onClick={() => setIsUploadModalOpen(true)}>
+                    <Plus size={20} />
+                    <span>Add Clip</span>
+                </button>
             </div>
+
+            {clips.length === 0 ? (
+                <div className="empty-state">No clips found. Add some to the database!</div>
+            ) : (
+                <div className="sound-grid">
+                    {clips.map(clip => (
+                        <SoundCard
+                            key={clip.id}
+                            label={clip.label}
+                            onClick={() => playSound(clip)}
+                            isPlaying={playingId === clip.id}
+                        />
+                    ))}
+                </div>
+            )}
+
+            <UploadModal
+                isOpen={isUploadModalOpen}
+                onClose={() => setIsUploadModalOpen(false)}
+                onUploadSuccess={fetchClips}
+            />
         </div>
     )
 }
