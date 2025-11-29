@@ -4,7 +4,7 @@ import SoundCard from './SoundCard'
 import UploadModal from './UploadModal'
 import RandomButton from './RandomButton'
 import BlastButton from './BlastButton'
-import { Plus } from 'lucide-react'
+import { Plus, Download } from 'lucide-react'
 import './SoundBoard.css'
 
 export default function SoundBoard() {
@@ -15,6 +15,7 @@ export default function SoundBoard() {
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
     useEffect(() => {
+        console.log('SoundBoard mounted')
         fetchClips()
     }, [])
 
