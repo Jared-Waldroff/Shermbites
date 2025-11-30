@@ -4,7 +4,7 @@ import { saveClip, getClip, isClipDownloaded } from '../lib/db'
 import SoundCard from './SoundCard'
 import UploadModal from './UploadModal'
 import RandomButton from './RandomButton'
-import WhiteMonsterButton from './WhiteMonsterButton'
+import BlastButton from './BlastButton'
 import DownloadProgress from './DownloadProgress'
 import { Plus, Download, XCircle } from 'lucide-react'
 import './SoundBoard.css'
@@ -254,7 +254,7 @@ export default function SoundBoard() {
 
             <div className="controls-bar">
                 <RandomButton onPlayRandom={playRandom} disabled={clips.length === 0} />
-                <WhiteMonsterButton onBlast={playBlast} disabled={clips.length === 0} />
+                <BlastButton onBlast={playBlast} disabled={clips.length === 0} />
                 <button className="upload-btn" onClick={() => setIsUploadModalOpen(true)}>
                     <Plus size={20} />
                     <span>Add Clip</span>
