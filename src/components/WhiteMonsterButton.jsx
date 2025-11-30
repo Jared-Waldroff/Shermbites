@@ -1,6 +1,6 @@
 import React from 'react'
 import './WhiteMonsterButton.css'
-import whiteMonsterImg from '../assets/white_monster.png'
+import whiteMonsterImg from '../assets/white_monster_v2.png'
 
 export default function WhiteMonsterButton({ onBlast, disabled }) {
     return (
