@@ -186,6 +186,8 @@ export default function SoundBoard() {
 
             if (arrayBuffer) {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+                await audioContext.resume()
+
                 const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
 
                 const source = audioContext.createBufferSource()
