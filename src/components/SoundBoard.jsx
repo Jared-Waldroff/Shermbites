@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { saveClip, getClip, isClipDownloaded } from '../lib/db'
 import SoundCard from './SoundCard'
 import UploadModal from './UploadModal'
 import RandomButton from './RandomButton'
 import BlastButton from './BlastButton'
+import DownloadProgress from './DownloadProgress'
 import { Plus, Download } from 'lucide-react'
 import './SoundBoard.css'
 
@@ -13,6 +15,10 @@ export default function SoundBoard() {
     const [error, setError] = useState(null)
     const [playingId, setPlayingId] = useState(null)
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+    const [downloadedClips, setDownloadedClips] = useState({})
+    const [downloadProgress, setDownloadProgress] = useState(0)
+    const [isDownloading, setIsDownloading] = useState(false)
+    const [downloadStats, setDownloadStats] = useState({ current: 0, total: 0 })
 
     useEffect(() => {
         console.log('SoundBoard mounted')
@@ -29,6 +35,13 @@ export default function SoundBoard() {
 
             if (error) throw error
             setClips(data || [])
+
+            // Check download status for all clips
+            checkDownloadStatus(data || [])
+
+            // Auto-download missing clips
+            downloadMissingClips(data || [])
+
         } catch (err) {
             console.error('Error fetching clips:', err)
             setError(err.message)
@@ -37,16 +50,77 @@ export default function SoundBoard() {
         }
     }
 
-    const playSound = (clip) => {
+    async function checkDownloadStatus(clipsToCheck) {
+        const status = {}
+        for (const clip of clipsToCheck) {
+            status[clip.id] = await isClipDownloaded(clip.id)
+        }
+        setDownloadedClips(status)
+    }
+
+    async function downloadMissingClips(allClips) {
+        const missingClips = []
+        for (const clip of allClips) {
+            const downloaded = await isClipDownloaded(clip.id)
+            if (!downloaded && clip.filename) {
+                missingClips.push(clip)
+            }
+        }
+
+        if (missingClips.length === 0) return
+
+        setIsDownloading(true)
+        setDownloadStats({ current: 0, total: missingClips.length })
+
+        let downloadedCount = 0
+        for (let i = 0; i < missingClips.length; i++) {
+            const clip = missingClips[i]
+            try {
+                const { data } = supabase.storage.from('audio-clips').getPublicUrl(clip.filename)
+                if (data?.publicUrl) {
+                    const response = await fetch(data.publicUrl)
+                    const blob = await response.blob()
+                    await saveClip(clip.id, blob)
+
+                    setDownloadedClips(prev => ({ ...prev, [clip.id]: true }))
+                    downloadedCount++
+                }
+            } catch (e) {
+                console.error(`Failed to download ${clip.label}`, e)
+            }
+
+            setDownloadStats(prev => ({ ...prev, current: downloadedCount }))
+            setDownloadProgress(Math.round(((i + 1) / missingClips.length) * 100))
+        }
+
+        setIsDownloading(false)
+    }
+
+    const playSound = async (clip) => {
         if (!clip.filename) return
 
-        const { data } = supabase.storage.from('audio-clips').getPublicUrl(clip.filename)
+        try {
+            let audioSrc
+            const blob = await getClip(clip.id)
 
-        if (data?.publicUrl) {
-            const audio = new Audio(data.publicUrl)
-            setPlayingId(clip.id)
-            audio.play().catch(e => console.error("Audio play error:", e))
-            audio.onended = () => setPlayingId(null)
+            if (blob) {
+                audioSrc = URL.createObjectURL(blob)
+            } else {
+                const { data } = supabase.storage.from('audio-clips').getPublicUrl(clip.filename)
+                audioSrc = data?.publicUrl
+            }
+
+            if (audioSrc) {
+                const audio = new Audio(audioSrc)
+                setPlayingId(clip.id)
+                audio.play().catch(e => console.error("Audio play error:", e))
+                audio.onended = () => {
+                    setPlayingId(null)
+                    if (blob) URL.revokeObjectURL(audioSrc)
+                }
+            }
+        } catch (e) {
+            console.error("Play error:", e)
         }
     }
 
@@ -62,12 +136,21 @@ export default function SoundBoard() {
 
         if (!randomClip.filename) return
 
-        const { data } = supabase.storage.from('audio-clips').getPublicUrl(randomClip.filename)
+        try {
+            let arrayBuffer
+            const blob = await getClip(randomClip.id)
 
-        if (data?.publicUrl) {
-            try {
-                const response = await fetch(data.publicUrl)
-                const arrayBuffer = await response.arrayBuffer()
+            if (blob) {
+                arrayBuffer = await blob.arrayBuffer()
+            } else {
+                const { data } = supabase.storage.from('audio-clips').getPublicUrl(randomClip.filename)
+                if (data?.publicUrl) {
+                    const response = await fetch(data.publicUrl)
+                    arrayBuffer = await response.arrayBuffer()
+                }
+            }
+
+            if (arrayBuffer) {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)()
                 const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
 
@@ -76,7 +159,7 @@ export default function SoundBoard() {
 
                 // Create Distortion
                 const distortion = audioContext.createWaveShaper()
-                distortion.curve = makeDistortionCurve(200) // Reduced distortion
+                distortion.curve = makeDistortionCurve(200)
                 distortion.oversample = '4x'
 
                 // Create Gain (Volume)
@@ -91,10 +174,10 @@ export default function SoundBoard() {
                 setPlayingId(randomClip.id)
                 source.start()
                 source.onended = () => setPlayingId(null)
-
-            } catch (e) {
-                console.error("Blast error:", e)
             }
+
+        } catch (e) {
+            console.error("Blast error:", e)
         }
     }
 
@@ -112,28 +195,11 @@ export default function SoundBoard() {
         return curve
     }
 
-    const handleDownloadAll = async () => {
-        if (clips.length === 0) return
-        const confirmDownload = window.confirm(`Download ${clips.length} clips for offline use?`)
-        if (!confirmDownload) return
-
-        let downloadedCount = 0
-        for (const clip of clips) {
-            if (!clip.filename) continue
-            const { data } = supabase.storage.from('audio-clips').getPublicUrl(clip.filename)
-            if (data?.publicUrl) {
-                try {
-                    await fetch(data.publicUrl) // Browser cache will store this
-                    downloadedCount++
-                } catch (e) {
-                    console.error(`Failed to cache ${clip.label}`, e)
-                }
-            }
-        }
-        alert(`Downloaded ${downloadedCount} clips! You can now go offline.`)
+    const handleDownloadAll = () => {
+        downloadMissingClips(clips)
     }
 
-    if (loading) return <div className="loading-state">Loading Sherm bites...</div>
+    if (loading && clips.length === 0) return <div className="loading-state">Loading Sherm bites...</div>
     if (error) return <div className="error-state">Error: {error}. Make sure you've set up Supabase!</div>
 
     return (
@@ -145,11 +211,19 @@ export default function SoundBoard() {
                     <Plus size={20} />
                     <span>Add Clip</span>
                 </button>
-                <button className="upload-btn" onClick={handleDownloadAll} disabled={clips.length === 0} style={{ background: 'var(--surface-color)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <button className="upload-btn" onClick={handleDownloadAll} disabled={isDownloading || clips.length === 0} style={{ background: 'var(--surface-color)', border: '1px solid rgba(255,255,255,0.1)' }}>
                     <Download size={20} />
-                    <span>Download All</span>
+                    <span>{isDownloading ? 'Downloading...' : 'Download All'}</span>
                 </button>
             </div>
+
+            {isDownloading && (
+                <DownloadProgress
+                    progress={downloadProgress}
+                    current={downloadStats.current}
+                    total={downloadStats.total}
+                />
+            )}
 
             {clips.length === 0 ? (
                 <div className="empty-state">No clips found. Add some to the database!</div>
@@ -161,6 +235,7 @@ export default function SoundBoard() {
                             label={clip.label}
                             onClick={() => playSound(clip)}
                             isPlaying={playingId === clip.id}
+                            isDownloaded={downloadedClips[clip.id]}
                         />
                     ))}
                 </div>

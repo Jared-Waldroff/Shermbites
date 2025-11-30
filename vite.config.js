@@ -37,7 +37,7 @@ export default defineConfig({
             options: {
               cacheName: 'audio-clips-cache',
               expiration: {
-                maxEntries: 100,
+                maxEntries: 1000,
                 maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
               },
               cacheableResponse: {
