@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { saveClip, getClip, isClipDownloaded } from '../lib/db'
 import SoundCard from './SoundCard'
 import UploadModal from './UploadModal'
 import RandomButton from './RandomButton'
-import BlastButton from './BlastButton'
+import WhiteMonsterButton from './WhiteMonsterButton'
 import DownloadProgress from './DownloadProgress'
-import { Plus, Download } from 'lucide-react'
+import { Plus, Download, XCircle } from 'lucide-react'
 import './SoundBoard.css'
 
 export default function SoundBoard() {
@@ -19,10 +19,20 @@ export default function SoundBoard() {
     const [downloadProgress, setDownloadProgress] = useState(0)
     const [isDownloading, setIsDownloading] = useState(false)
     const [downloadStats, setDownloadStats] = useState({ current: 0, total: 0 })
+    const [showAggressivePopup, setShowAggressivePopup] = useState(false)
+
+    const currentAudioRef = useRef(null)
 
     useEffect(() => {
         console.log('SoundBoard mounted')
         fetchClips()
+
+        return () => {
+            if (currentAudioRef.current) {
+                currentAudioRef.current.pause()
+                currentAudioRef.current = null
+            }
+        }
     }, [])
 
     async function fetchClips() {
@@ -99,6 +109,13 @@ export default function SoundBoard() {
     const playSound = async (clip) => {
         if (!clip.filename) return
 
+        // Audio Locking Mechanism
+        if (playingId !== null) {
+            setShowAggressivePopup(true)
+            setTimeout(() => setShowAggressivePopup(false), 2000)
+            return
+        }
+
         try {
             let audioSrc
             const blob = await getClip(clip.id)
@@ -112,15 +129,24 @@ export default function SoundBoard() {
 
             if (audioSrc) {
                 const audio = new Audio(audioSrc)
+                currentAudioRef.current = audio
                 setPlayingId(clip.id)
-                audio.play().catch(e => console.error("Audio play error:", e))
+
+                audio.play().catch(e => {
+                    console.error("Audio play error:", e)
+                    setPlayingId(null)
+                    currentAudioRef.current = null
+                })
+
                 audio.onended = () => {
                     setPlayingId(null)
+                    currentAudioRef.current = null
                     if (blob) URL.revokeObjectURL(audioSrc)
                 }
             }
         } catch (e) {
             console.error("Play error:", e)
+            setPlayingId(null)
         }
     }
 
@@ -132,6 +158,14 @@ export default function SoundBoard() {
 
     const playBlast = async () => {
         if (clips.length === 0) return
+
+        // Audio Locking for Blast too
+        if (playingId !== null) {
+            setShowAggressivePopup(true)
+            setTimeout(() => setShowAggressivePopup(false), 2000)
+            return
+        }
+
         const randomClip = clips[Math.floor(Math.random() * clips.length)]
 
         if (!randomClip.filename) return
@@ -159,25 +193,30 @@ export default function SoundBoard() {
 
                 // Create Distortion
                 const distortion = audioContext.createWaveShaper()
-                distortion.curve = makeDistortionCurve(200)
+                distortion.curve = makeDistortionCurve(400) // Increased distortion for WHITE MONSTER
                 distortion.oversample = '4x'
 
                 // Create Gain (Volume)
                 const gainNode = audioContext.createGain()
-                gainNode.gain.value = 0.5
+                gainNode.gain.value = 0.8 // Louder
 
                 // Connect chain: Source -> Distortion -> Gain -> Destination
                 source.connect(distortion)
                 distortion.connect(gainNode)
                 gainNode.connect(audioContext.destination)
 
-                setPlayingId(randomClip.id)
+                setPlayingId(randomClip.id) // Lock UI
                 source.start()
-                source.onended = () => setPlayingId(null)
+
+                source.onended = () => {
+                    setPlayingId(null)
+                    audioContext.close()
+                }
             }
 
         } catch (e) {
             console.error("Blast error:", e)
+            setPlayingId(null)
         }
     }
 
@@ -204,9 +243,18 @@ export default function SoundBoard() {
 
     return (
         <div className="sound-board-container">
+            {showAggressivePopup && (
+                <div className="aggressive-popup-overlay">
+                    <div className="aggressive-popup">
+                        <XCircle size={48} color="#ff0000" />
+                        <h2>SLOW THE FUCK DOWN</h2>
+                    </div>
+                </div>
+            )}
+
             <div className="controls-bar">
                 <RandomButton onPlayRandom={playRandom} disabled={clips.length === 0} />
-                <BlastButton onBlast={playBlast} disabled={clips.length === 0} />
+                <WhiteMonsterButton onBlast={playBlast} disabled={clips.length === 0} />
                 <button className="upload-btn" onClick={() => setIsUploadModalOpen(true)}>
                     <Plus size={20} />
                     <span>Add Clip</span>
